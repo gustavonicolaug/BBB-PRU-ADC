@@ -20,7 +20,8 @@ Assume Debian distribution for IoT version 8.2 (without graphical desktop) with 
 ## Running the tests
  
 ## Authors
-
+	Gustavo Nicolau Gonçalves
+	README.md based on **Billie Thompson** - *Initial work* - [PurpleBooth](https://github.com/PurpleBooth)
 ## License
 
 see the [LICENSE.md](LICENSE.md) file for details
