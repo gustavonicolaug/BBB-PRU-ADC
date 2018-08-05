@@ -30,26 +30,36 @@
 
 #define B1_END				R6	//Buffer 1 last position
 
-#define	FIFO_ADDR			R7	//FIFO_0 address
+#define	FIFO				R7	//FIFO_0 address
 
 #define	SYNC				R8	//Syncronization variable between PRU0 and PRU1
 
 #define	CONST_SHAREDRAM		R9	//Initial position of PRU SHARED RAM
 
-//#define	HEADER				R10	//Header (0-255)
-
-//#define	BUFFER0_INI			R11	//Buffer 0 first valid position(after header)
-
-//#define BUFFER1_INI			R12	//Buffer 1 first valid position(after header)
-
-//#define	BUFFER0_INDEX		R13	//Buffer 0 index position
-
-//#define BUFFER1_INDEX		R14	//Buffer 1 index position 
-
-
 // ******************** //
 // ------ Macros ------ //
 // ******************** //
+
+// *********************************************************************************
+// MEMCONF:
+//
+//	Configuration of registers to enable OCP master and configure RAM access
+// 	The following link may help understand this block of code
+// 	http://www.embedded-things.com/bbb/understanding-bbb-pru-shared-memory-access/
+// *********************************************************************************
+.macro MEMCONF
+
+//------ Enable OCP master port ------//
+	
+    	LBCO	R0, C4, 4, 4	//Read SYSCFG Register
+    	CLR		R0, R0, 4		//Clear SYSCFG[STANDBY_INIT] to enable OCP master port
+    	SBCO	R0, C4, 4, 4
+
+//------ Set C24 to point to RAM  ------//
+
+		MOV         CONST_SHAREDRAM, 0x10000
+
+.endm
 
 // *************************************************************************************
 // ADCCONF:
@@ -104,28 +114,6 @@ macro. ADCCONF
     SBBO r3, r2, 0, 4	
 
 .endm
-
-// *********************************************************************************
-// MEMCONF:
-//
-//	Configuration of registers to enable OCP master and configure RAM access
-// 	The following link may help understand this block of code
-// 	http://www.embedded-things.com/bbb/understanding-bbb-pru-shared-memory-access/
-// *********************************************************************************
-.macro MEMCONF
-
-//------ Enable OCP master port ------//
-	
-    	LBCO	R0, C4, 4, 4	//Read SYSCFG Register
-    	CLR		R0, R0, 4		//Clear SYSCFG[STANDBY_INIT] to enable OCP master port
-    	SBCO	R0, C4, 4, 4
-
-//------ Set C24 to point to RAM  ------//
-
-		MOV         CONST_SHAREDRAM, 0x10000
-
-.endm
-
 
 // *********************************************
 // TRIGGER: 
