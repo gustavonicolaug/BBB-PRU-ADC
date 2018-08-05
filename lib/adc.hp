@@ -1,0 +1,186 @@
+/********************************************************
+ * BBB PRU ADC Reader - adc.hp							*
+ * Header for PRU Assembly code.						*
+ *                                                    	*
+ * This header defines the register, constants and 		*
+ * declare all macros used in the assembly code of 		*
+ * project BBB-PRU-ADC.									*
+ *                                                    	*
+ * Author: Gustavo Nicolau Gonçalves  					*	 
+ ********************************************************/
+
+// *********************** //
+// ------ Constants ------ //
+// *********************** //
+
+#define TIME	100					// Delay used to syncronize samples.
+#define PRU_INTERRUPT	19			// Interrupt used to signal loader C program.
+
+// ********************************** //
+// ------ Register Definitions ------ //
+// ********************************** //
+
+#define	MEM_OFFSET			R2	//Shared RAM offset
+
+#define	ADCVALUE			R3	//ADC value
+
+#define	TOTALBW				R4	//Total number of Bytes written
+
+#define	B0_END				R5	//Buffer 0 last position
+
+#define B1_END				R6	//Buffer 1 last position
+
+#define	FIFO_ADDR			R7	//FIFO_0 address
+
+#define	SYNC				R8	//Syncronization variable between PRU0 and PRU1
+
+#define	CONST_SHAREDRAM		R9	//Initial position of PRU SHARED RAM
+
+//#define	HEADER				R10	//Header (0-255)
+
+//#define	BUFFER0_INI			R11	//Buffer 0 first valid position(after header)
+
+//#define BUFFER1_INI			R12	//Buffer 1 first valid position(after header)
+
+//#define	BUFFER0_INDEX		R13	//Buffer 0 index position
+
+//#define BUFFER1_INDEX		R14	//Buffer 1 index position 
+
+
+// ******************** //
+// ------ Macros ------ //
+// ******************** //
+
+// *************************************************************************************
+// ADCCONF:
+//	
+//	Configuration of PRU registers to enable  ADC to sample from channel 1(AIN0)
+//	All registers can be found on chapter 12 of AM335x and AMIC110 SitaraTM 
+//	Processors Technical Reference Manual.
+// *************************************************************************************
+
+macro. ADCCONF
+
+//------ Make writable  Step Configuration Registers ------//		
+	
+	MOV r2, 0x44E0D040		//CTRL Register(40h)
+    MOV r3, 0x00000004		//Step Configuration Registers are not protected
+    SBBO r3, r2, 0, 4
+	
+//------ Disable Idle ------//
+
+	MOV r2, 0x44E0D010		//SYSCONFIG Register(10h)
+    MOV r3, 0x00000004 		//No Idle Mode (never acknowledges).
+    SBBO r3, r2, 0, 4
+
+//------ Set Clock divisor to zero ------//
+
+	MOV r2, 0x44E0D04C		//ADC_CLKDIV Register(4Ch)
+    MOV r3, 0x00000000 		//Set to zero
+    SBBO r3, r2, 0, 4
+
+//------ Configure Step 1 in continuous mode and Software Enable(sample immediately after it is enabled) ------//
+
+	MOV r2, 0x44E0D064		//STEPCONFIG1 Register(64h)
+    MOV r3, 0x00000000 		//SW enabled, one-shot, input = AIN0
+    SBBO r3, r2, 0, 4
+
+//------ Configure SampleDelay and OpenDelay to be zero ------//
+
+	MOV r2, 0x44E0D068      //STEPDELAY1 Register(68h)
+	MOV r3, 0x00000000		//Disable both delays
+	SBBO r3, r2, 0, 4
+
+//------ Disable all steps, they will be triggered later ------//
+	
+	MOV r2, 0x44E0D054		//STEPENABLE Register(54h)
+    MOV r3, 0x00000000 		//Disable all steps for now
+    SBBO r3, r2, 0, 4
+	
+//------ Protect Step Configuration Registers and Start Sampling ------//
+	
+	MOV r2, 0x44E0D040		//CTRL Register(40h)
+    MOV r3, 0x00000001		//Turn on TSC_ADC_SS module and turn Step Configuration Registers unwritable
+    SBBO r3, r2, 0, 4	
+
+.endm
+
+// *********************************************************************************
+// MEMCONF:
+//
+//	Configuration of registers to enable OCP master and configure RAM access
+// 	The following link may help understand this block of code
+// 	http://www.embedded-things.com/bbb/understanding-bbb-pru-shared-memory-access/
+// *********************************************************************************
+.macro MEMCONF
+
+//------ Enable OCP master port ------//
+	
+    	LBCO	R0, C4, 4, 4	//Read SYSCFG Register
+    	CLR		R0, R0, 4		//Clear SYSCFG[STANDBY_INIT] to enable OCP master port
+    	SBCO	R0, C4, 4, 4
+
+//------ Set C24 to point to RAM  ------//
+
+		MOV         CONST_SHAREDRAM, 0x10000
+
+.endm
+
+
+// *********************************************
+// TRIGGER: 
+//
+//	Trigger a new ADC single-shot measurement
+// *********************************************
+
+.macro TRIGGER
+
+	MOV R0, 0x44E0D054		//STEPENABLE Register(54h)
+    	MOV R1, 0x00000002 	//Enable Step1
+    	SBBO R1, R0, 0, 4
+
+.endm
+
+
+// ***********************************************************************************
+// ADCSAMPLE:
+//
+//	Read ADC value from channel 1 of 1 byte, store in RAM and update control variables
+//	The list of parameters are the following:
+//	-scr:
+//	-dst:
+//	-offset:
+//	-count:
+// ***********************************************************************************
+
+.macro ADCSAMPLE
+.mparam src, dst,offset,count
+
+	LBBO	dst,src,0,2						//Read 2 byte from src[FIFO_ADDR] and save value in dst[ADCVALUE]
+	LSR     dst, dst, 2						//Shift of 2 bits
+	SBBO 	dst, CONST_SHAREDRAM, offset, 1	//Write 1 byte of dst[ADCVALUE] in RAM[C4] at offset [MEM_OFFSET]	
+	ADD 	offset, offset, 1				//Update offset [MEM_OFFSET]
+	ADD 	count, count, 1					//Update count [TOTALBW]
+.endm
+
+//---------------------------------
+//	Sample rate Delay 
+//	Delay based on constant TIME
+//---------------------------------
+
+.macro DELAY
+    	
+	MOV	R10, TIME
+	DELAY:
+        	SUB	R10, R10, 1
+        	QBNE 	DELAY, R10, 0
+.endm
+
+
+
+
+
+
+
+
+
