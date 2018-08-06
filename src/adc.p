@@ -1,19 +1,19 @@
 /********************************************************
- * BBB PRU ADC Reader - adc.p	           	      	  	*
+ * BBB PRU ADC Reader - adc.p 							*
  * Code to work as a ADC reader, reading the input from *
  * AIN0 pin and writting data into the PRU SHARED RAM 	*
  * data memory so the CPU can read.						*
- *						      						  	*
- * Compile with: pasm -V3 -b adc.p					  	*
- * - adc.hp must be in the same directory				*
- * 						      						  	*
+ *														*
+ * Compile with: pasm -V3 -b adc.p 						*
+ * - adc.hp must be in the same directory 				*
+ *														*
  * The data read from channel1(AIN0) ADC module is 		*
  * stored in two buffers of 6kb of memory each.			*
  *														*
  * BeagleBone Black ADC module pins support voltage in 	*
  * range of 0V to 1.8V, DO NOT EXCEED THIS VALUE!		*
  *														*
- * Author: Gustavo Nicolau Gonçalves       				*
+ * Author: Gustavo Nicolau Gonçalves					*
  ********************************************************/
 
 #include "adc_reader.hp"

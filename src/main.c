@@ -1,9 +1,9 @@
 /********************************************************
- * Host side code to load the adc.bin and sync.bin 		*
+ * Host side code to load the adc.bin and sync.bin		*
  * image to PRU0 and PRU1, and read buffers received	*
  *														*
- * Compile with:                                      	*
- * 	gcc -o main main.c -lprussdrv -lpthread   			*
+ * Compile with:										*
+ * 	gcc -o main main.c -lprussdrv -lpthread				*
  * Note: adc.bin and sync.bin must be in the current 	*
  * directory.   										*
  *														*
@@ -39,9 +39,6 @@ unsigned int fifoctr = 0;		// FIFO counter
 unsigned int fifopush = 0;		// FIFO position for pushing data in
 unsigned int fifopop = 0;		// FIFO position for popping data out
 pthread_mutex_t fifomutex;		// mutex for FIFO use in threads
-
-int socket_desc , client_sock , c;
-struct sockaddr_in server , client;
 
 //--------------------------------------------------------------------------------------
 //	receive_block():
@@ -92,7 +89,6 @@ void *receive_block(void *args)
 
 void *print_block(void *args) 
 {
-	int bank = 0;
 	while(1)
 	{
 		if(fifoctr > 0)
@@ -103,8 +99,11 @@ void *print_block(void *args)
 
 			for(i = 0; i < 6144; i++)
 			{
-       			fprintf(stdout, "%d ", fifo[fifopush][i]);
+       			fprintf(stdout, "%d ", fifo[fifopop][i]);
 			}
+
+			if(fifopop < 511) fifopop++;		//Update fifo pointer to pop data out
+           	else fifopop = 0;
 		
 		}
 	}
